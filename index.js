@@ -41,11 +41,42 @@ async function run() {
       })
 
       //checkouts
-      app.post('/checkouts', async(req, res) =>{
+      app.post('/checkouts', async (req, res) => {
          const checkout = req.body;
          const result = await checkoutsCollection.insertOne(checkout)
          res.send(result)
       })
+
+      app.get('/checkouts', async (req, res) => {
+         let query = {}
+         if (req.query.email) {
+            query = { email: req.query.email }
+         }
+         const result = await checkoutsCollection.find(query).toArray();
+         res.send(result)
+      })
+
+      app.delete('/checkouts/:id', async (req, res) => {
+         const id = req.params.id;
+         const query = { _id: new ObjectId(id) }
+         const result = await checkoutsCollection.deleteOne(query)
+         res.send(result)
+      })
+
+      app.patch('/checkouts/:id', async(req, res) =>{
+         const id = req.params.id;
+         const filter = {_id : new ObjectId(id)}
+         const updatedCheckout = req.body;
+         console.log(updatedCheckout)
+         const updatedDoc = {
+            $set : {
+               status : updatedCheckout.status
+            }
+         }
+         const result = await checkoutsCollection.updateOne(filter, updatedDoc)
+         res.send(result)
+      })
+
 
       await client.db("admin").command({ ping: 1 });
       console.log("You successfully connected to MongoDB!");
