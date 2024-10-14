@@ -1,12 +1,19 @@
 const express = require('express');
 const app = express()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken')
 require('dotenv').config()
 const cors = require('cors');
 const port = process.env.PORT || 5000;
 
-app.use(cors())
+app.use(cors({
+   origin:['http://localhost:5173'],
+   credentials:true
+}))
 app.use(express.json())
+app.use(cookieParser())
+
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ewhtdrn.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -24,6 +31,24 @@ async function run() {
       const serviceCollection = client.db('carDoctorDB').collection('services');
       const checkoutsCollection = client.db('carDoctorDB').collection('checkouts');
 
+      //json web token related api.
+
+      app.post('/jwt', async (req, res) => {
+         const user = req.body;
+         console.log(user)
+         const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+            expiresIn: '1h'
+         })
+         res
+            .cookie('token', token, {
+               httpOnly: true,
+               secure: false
+            })
+            .send({ success: true })
+      })
+
+
+      //services related api.
 
       app.get('/services', async (req, res) => {
          const result = await serviceCollection.find().toArray();
@@ -48,6 +73,7 @@ async function run() {
       })
 
       app.get('/checkouts', async (req, res) => {
+         console.log(req.cookies.token)
          let query = {}
          if (req.query.email) {
             query = { email: req.query.email }
@@ -63,14 +89,14 @@ async function run() {
          res.send(result)
       })
 
-      app.patch('/checkouts/:id', async(req, res) =>{
+      app.patch('/checkouts/:id', async (req, res) => {
          const id = req.params.id;
-         const filter = {_id : new ObjectId(id)}
+         const filter = { _id: new ObjectId(id) }
          const updatedCheckout = req.body;
          console.log(updatedCheckout)
          const updatedDoc = {
-            $set : {
-               status : updatedCheckout.status
+            $set: {
+               status: updatedCheckout.status
             }
          }
          const result = await checkoutsCollection.updateOne(filter, updatedDoc)
