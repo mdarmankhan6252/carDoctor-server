@@ -25,6 +25,30 @@ const client = new MongoClient(uri, {
    }
 });
 
+const logger = async(req, res, next) =>{
+   console.log('called', req.host, req.originalUrl);
+   next()
+}
+
+const verifyToken = async(req, res, next) =>{
+   const token = req.cookies?.token;
+   console.log('value of token in middleware :', token);
+   if(!token){
+      return res.status(401).send({message: 'not authorized'})
+   }
+   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) =>{
+      //error
+      if(error){
+         console.log(error);
+         return res.status(401).send({message:'not authorized'})
+      }
+      console.log('value in the token', decoded);
+      req.user = decoded;
+      next()
+   })
+
+}
+
 async function run() {
    try {
 
@@ -33,7 +57,7 @@ async function run() {
 
       //json web token related api.
 
-      app.post('/jwt', async (req, res) => {
+      app.post('/jwt',logger, async (req, res) => {
          const user = req.body;
          console.log(user)
          const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -50,7 +74,7 @@ async function run() {
 
       //services related api.
 
-      app.get('/services', async (req, res) => {
+      app.get('/services',logger, async (req, res) => {
          const result = await serviceCollection.find().toArray();
          res.send(result)
       })
@@ -72,8 +96,15 @@ async function run() {
          res.send(result)
       })
 
-      app.get('/checkouts', async (req, res) => {
-         console.log(req.cookies.token)
+      app.get('/checkouts',logger,verifyToken, async (req, res) => {
+         console.log(req.query.email)
+         // console.log(req.cookies.token)
+         console.log('user in the valid token : ',req.user);
+
+         if(req.query.email !== req.user.email){
+            return res.send(403).send({message: 'forbidden access'})
+         }
+
          let query = {}
          if (req.query.email) {
             query = { email: req.query.email }
